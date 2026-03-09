@@ -28,6 +28,7 @@ type User = {
   id: string;
   name: string;
   role: string;
+  email?: string;
 };
 
 export default function Dashboard() {
@@ -49,6 +50,9 @@ export default function Dashboard() {
   /* ===== TEAM FILTERING STATE ===== */
   const [selectedTeamBoard, setSelectedTeamBoard] = useState("");
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+
+  /* ===== MAINTENANCE STATE ===== */
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   /* ===== CHART DATA ===== */
   const chartData = {
@@ -102,6 +106,8 @@ export default function Dashboard() {
     user?.role === "Project Manager" ||
     user?.role === "Team Lead";
 
+  const isClient = user?.role === "Client";
+
   const createBoard = async () => {
     if (!isAdmin || !boardName.trim()) return;
     const token = localStorage.getItem("token");
@@ -132,7 +138,7 @@ export default function Dashboard() {
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
   };
 
-  const saveEdit = async () => {
+  const saveEditBoard = async () => {
     if (!editingId) return;
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -146,6 +152,47 @@ export default function Dashboard() {
     });
     setBoards((prev) => prev.map((b) => b.id === editingId ? { ...b, name: editingName } : b));
     setEditingId(null);
+  };
+
+  /* ===== USER MAINTENANCE ACTIONS ===== */
+
+  const deleteUser = async (userId: string) => {
+    if (!isClient) return;
+    const token = localStorage.getItem("token");
+    if (window.confirm("Are you sure you want to remove this user? This will also delete their boards and tickets.")) {
+      const res = await fetch(`http://localhost:4000/users/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        alert("User removed successfully.");
+      } else {
+        const err = await res.json();
+        alert(`Failed to delete: ${err.message}`);
+      }
+    }
+  };
+
+  const updateUser = async () => {
+    if (!editingUser || !isClient) return;
+    const token = localStorage.getItem("token");
+    const res = await fetch(`http://localhost:4000/users/${editingUser.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        role: editingUser.role,
+        email: editingUser.email
+      }),
+    });
+    if (res.ok) {
+      setUsers(prev => prev.map(u => u.id === editingUser.id ? editingUser : u));
+      setEditingUser(null);
+      alert("User updated successfully");
+    }
   };
 
   const handleLogout = () => {
@@ -232,6 +279,29 @@ export default function Dashboard() {
               {view}
             </button>
           ))}
+
+          {isClient && (
+            <button
+              onClick={() => setActiveView("maintenance")}
+              style={{
+                textAlign: "left",
+                padding: "16px 24px",
+                borderRadius: "14px",
+                border: "none",
+                background: activeView === "maintenance" ? "rgba(255, 255, 255, 0.25)" : "transparent",
+                color: "#ffc107",
+                fontWeight: "900",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                fontSize: "13px",
+                marginTop: "20px",
+                cursor: "pointer",
+                border: "1px dashed rgba(255, 193, 7, 0.5)"
+              }}
+            >
+              Maintenance
+            </button>
+          )}
         </nav>
       </div>
 
@@ -284,8 +354,7 @@ export default function Dashboard() {
                   display: "flex", 
                   gap: "15px", 
                   marginBottom: "40px",
-                  border: "1px solid rgba(255, 255, 255, 0.3)",
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.05)"
+                  border: "1px solid rgba(255, 255, 255, 0.3)"
                 }}>
                   <input
                     placeholder="Enter new board name..."
@@ -293,7 +362,7 @@ export default function Dashboard() {
                     onChange={(e) => setBoardName(e.target.value)}
                     style={{ flex: 1, padding: "14px 20px", borderRadius: "12px", border: "none", outline: "none", background: "white", fontSize: "15px" }}
                   />
-                  <button onClick={createBoard} style={{ background: "#1cc88a", color: "white", border: "none", padding: "0 35px", borderRadius: "12px", fontWeight: "900", fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(28, 200, 138, 0.3)" }}>
+                  <button onClick={createBoard} style={{ background: "#1cc88a", color: "white", border: "none", padding: "0 35px", borderRadius: "12px", fontWeight: "900", fontSize: "13px", cursor: "pointer" }}>
                     CREATE BOARD
                   </button>
                 </div>
@@ -308,13 +377,12 @@ export default function Dashboard() {
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    minHeight: "200px",
-                    transition: "transform 0.2s ease"
+                    minHeight: "200px"
                   }}>
                     {editingId === board.id ? (
                       <div style={{ display: "flex", gap: "10px" }}>
                         <input value={editingName} onChange={(e) => setEditingName(e.target.value)} style={{ flex: 1, border: "2px solid #edf2f7", padding: "10px", borderRadius: "8px" }} />
-                        <button onClick={saveEdit} style={{ background: "#1cc88a", color: "white", border: "none", padding: "10px 20px", borderRadius: "8px", fontWeight: "bold" }}>Save</button>
+                        <button onClick={saveEditBoard} style={{ background: "#1cc88a", color: "white", border: "none", padding: "10px 20px", borderRadius: "8px", fontWeight: "bold" }}>Save</button>
                       </div>
                     ) : (
                       <>
@@ -349,82 +417,109 @@ export default function Dashboard() {
                 {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
               <div style={{ maxWidth: "450px", margin: "0 auto" }}>
-                <Pie data={chartData} options={{ plugins: { legend: { position: 'bottom', labels: { padding: 25, font: { weight: 'bold' } } } } }} />
+                <Pie data={chartData} />
               </div>
             </div>
           )}
 
-          {/* TEAM VIEW (EMAILS REMOVED) */}
+          {/* TEAM VIEW */}
           {activeView === "team" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end" }}>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span style={{ color: "white", fontSize: "12px", fontWeight: "900", textTransform: "uppercase", letterSpacing: "3px", opacity: 0.8 }}>Resource Directory</span>
-                    <h2 style={{ color: "white", margin: "5px 0 0 0", fontWeight: 900, fontSize: "36px", textShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>Team Members</h2>
-                </div>
-                <select
-                  value={selectedTeamBoard}
-                  onChange={(e) => { setSelectedTeamBoard(e.target.value); fetchBoardTeam(e.target.value); }}
-                  style={{ padding: "14px 24px", borderRadius: "14px", background: "white", border: "none", width: "300px", fontWeight: "700", fontSize: "14px", boxShadow: "0 8px 20px rgba(0,0,0,0.12)", color: "#4e73df" }}
-                >
-                  <option value="">Full Directory View</option>
-                  {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
-
+              <h2 style={{ color: "white", margin: 0, fontWeight: 900, fontSize: "36px" }}>Team Members</h2>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "35px" }}>
-                {(selectedTeamBoard ? filteredUsers : users).map((member) => (
-                  <div key={member.id} style={{
-                    background: "rgba(255, 255, 255, 1)",
-                    padding: "45px 30px",
-                    borderRadius: "28px",
-                    textAlign: "center",
-                    position: "relative",
-                    overflow: "hidden",
-                    boxShadow: "0 15px 35px rgba(0,0,0,0.06)",
-                    transition: "transform 0.3s ease"
-                  }}>
-                    {/* Visual accent bar */}
+                {users.map((member) => (
+                  <div key={member.id} style={{ background: "rgba(255, 255, 255, 1)", padding: "45px 30px", borderRadius: "28px", textAlign: "center", position: "relative", boxShadow: "0 15px 35px rgba(0,0,0,0.06)" }}>
                     <div style={{ height: "8px", background: "#4e73df", position: "absolute", top: 0, left: 0, right: 0 }}></div>
-                    
-                    {/* Avatar Initial */}
-                    <div style={{ 
-                        width: "90px", 
-                        height: "90px", 
-                        background: "#f0f7ff", 
-                        color: "#4e73df", 
-                        borderRadius: "50%", 
-                        display: "flex", 
-                        alignItems: "center", 
-                        justifyContent: "center", 
-                        margin: "0 auto 25px", 
-                        fontSize: "32px", 
-                        fontWeight: "900", 
-                        border: "5px solid white", 
-                        boxShadow: "0 5px 15px rgba(0,0,0,0.08)" 
-                    }}>
+                    <div style={{ width: "90px", height: "90px", background: "#f0f7ff", color: "#4e73df", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 25px", fontSize: "32px", fontWeight: "900", border: "5px solid white" }}>
                       {member.name.charAt(0).toUpperCase()}
                     </div>
-
-                    <h3 style={{ margin: "0 0 8px 0", color: "#1a202c", fontSize: "22px", fontWeight: "900", letterSpacing: "-0.5px" }}>{member.name}</h3>
-                    
-                    <div style={{ display: "inline-block", background: "#eef4ff", padding: "6px 16px", borderRadius: "12px" }}>
-                        <span style={{ fontSize: "11px", color: "#4e73df", fontWeight: "900", textTransform: "uppercase", letterSpacing: "1.2px" }}>
-                            {member.role}
-                        </span>
-                    </div>
-
-                    {/* Footer decoration */}
-                    <div style={{ marginTop: "30px", borderTop: "1px solid #f7fafc" }}></div>
+                    <h3 style={{ margin: "0 0 8px 0", color: "#1a202c", fontSize: "22px", fontWeight: "900" }}>{member.name}</h3>
+                    <span style={{ fontSize: "11px", color: "#4e73df", fontWeight: "900", textTransform: "uppercase", background: "#eef4ff", padding: "6px 16px", borderRadius: "12px" }}>{member.role}</span>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
 
-              {(selectedTeamBoard ? filteredUsers : users).length === 0 && (
-                <div style={{ textAlign: "center", padding: "100px 0", color: "white", opacity: 0.6 }}>
-                    <p style={{ fontSize: "18px", fontWeight: "700" }}>No members found assigned to this board.</p>
-                </div>
-              )}
+          {/* MAINTENANCE VIEW */}
+          {activeView === "maintenance" && isClient && (
+            <div style={{ 
+              background: "rgba(255, 255, 255, 0.95)", 
+              padding: "40px", 
+              borderRadius: "24px", 
+              boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
+              backdropFilter: "blur(10px)"
+            }}>
+              <div style={{ marginBottom: "30px" }}>
+                <h2 style={{ color: "#1a202c", fontWeight: 900, fontSize: "28px", margin: 0 }}>System Maintenance</h2>
+                <p style={{ color: "#718096", fontSize: "14px", marginTop: "5px" }}>Manage user permissions, roles, and account status.</p>
+              </div>
+              
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px" }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "#4e73df", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1.5px" }}>
+                      <th style={{ padding: "15px 20px" }}>User Details</th>
+                      <th style={{ padding: "15px 20px" }}>Access Level</th>
+                      <th style={{ padding: "15px 20px", textAlign: "right" }}>Management</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map(u => (
+                      <tr key={u.id} style={{ background: "white", boxShadow: "0 2px 10px rgba(0,0,0,0.02)" }}>
+                        <td style={{ padding: "20px", borderRadius: "15px 0 0 15px", borderLeft: "4px solid #4e73df" }}>
+                          <div style={{ fontWeight: "800", color: "#2d3748" }}>{u.name}</div>
+                          <div style={{ fontSize: "12px", color: "#a0aec0" }}>
+                            {editingUser?.id === u.id ? (
+                              <input 
+                                value={editingUser.email || ""} 
+                                onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                                style={{ border: "1px solid #cbd5e0", padding: "4px 8px", borderRadius: "5px", width: "250px", marginTop: "5px" }}
+                              />
+                            ) : (u.email || "No Email Defined")}
+                          </div>
+                        </td>
+                        <td style={{ padding: "20px" }}>
+                          {editingUser?.id === u.id ? (
+                            <select 
+                              value={editingUser.role} 
+                              onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
+                              style={{ padding: "8px", borderRadius: "8px", border: "1px solid #cbd5e0", background: "white" }}
+                            >
+                              <option value="Team Member">Team Member</option>
+                              <option value="Team Lead">Team Lead</option>
+                              <option value="Project Manager">Project Manager</option>
+                              <option value="Client">Client</option>
+                            </select>
+                          ) : (
+                            <span style={{ 
+                              background: u.role === 'Client' ? "#fff5f5" : "#f0f7ff", 
+                              color: u.role === 'Client' ? "#e53935" : "#4e73df", 
+                              padding: "5px 12px", 
+                              borderRadius: "8px", 
+                              fontSize: "11px", 
+                              fontWeight: "800" 
+                            }}>{u.role}</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "20px", borderRadius: "0 15px 15px 0", textAlign: "right" }}>
+                          {editingUser?.id === u.id ? (
+                            <div style={{ display: "flex", gap: "10px", justifyContent: "end" }}>
+                              <button onClick={updateUser} style={{ background: "#1cc88a", color: "white", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>Save</button>
+                              <button onClick={() => setEditingUser(null)} style={{ background: "#edf2f7", color: "#4a5568", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>Cancel</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", gap: "20px", justifyContent: "end" }}>
+                              <button onClick={() => setEditingUser(u)} style={{ background: "transparent", color: "#4e73df", border: "none", fontWeight: "800", fontSize: "12px", cursor: "pointer" }}>EDIT</button>
+                              <button onClick={() => deleteUser(u.id)} style={{ background: "transparent", color: "#ff4b2b", border: "none", fontWeight: "800", fontSize: "12px", cursor: "pointer" }}>REMOVE</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

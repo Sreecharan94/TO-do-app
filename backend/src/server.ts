@@ -62,7 +62,7 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 /* ============================= */
-/* REGISTER */
+/* REGISTER / USER CREATION */
 /* ============================= */
 
 app.post("/users", async (req: Request, res: Response) => {
@@ -150,18 +150,90 @@ app.post("/login", async (req: Request, res: Response) => {
 });
 
 /* ============================= */
-/* USERS */
+/* USER MANAGEMENT (MAINTENANCE) */
 /* ============================= */
 
+// FETCH ALL USERS (INCLUDING EMAIL)
 app.get("/users", authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, role: true },
+      select: { 
+        id: true, 
+        name: true, 
+        role: true, 
+        email: true 
+      },
+      orderBy: { name: "asc" }
     });
     res.json(users);
   } catch (error) {
     console.error("Fetch users error:", error);
     res.status(500).json({ message: "Failed to fetch users" });
+  }
+});
+
+// UPDATE USER (CLIENT ONLY)
+app.patch("/users/:id", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { role: currentUserRole } = req.user!;
+    const { id } = req.params;
+    const { role, email } = req.body;
+
+    if (currentUserRole !== "Client") {
+      return res.status(403).json({ message: "Unauthorized: Client access required" });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { role, email },
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error("Update user error:", error);
+    res.status(500).json({ message: "Failed to update user. Email might be in use." });
+  }
+});
+
+// DELETE USER (CLIENT ONLY) - WITH CASCADE LOGIC
+app.delete("/users/:id", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId: currentUserId, role: currentUserRole } = req.user!;
+    const targetId = req.params.id;
+
+    if (currentUserRole !== "Client") {
+      return res.status(403).json({ message: "Unauthorized: Client access required" });
+    }
+
+    if (currentUserId === targetId) {
+      return res.status(400).json({ message: "You cannot delete your own account" });
+    }
+
+    // 1. Unassign tickets assigned to this user
+    await prisma.ticket.updateMany({
+      where: { assignedTo: targetId },
+      data: { assignedTo: targetId === "null" ? "null" : undefined } // Adjust based on schema nullability
+    });
+
+    // 2. Delete tickets created by this user
+    await prisma.ticket.deleteMany({
+      where: { createdBy: targetId }
+    });
+
+    // 3. Delete boards owned by this user
+    await prisma.board.deleteMany({
+      where: { userId: targetId }
+    });
+
+    // 4. Finally delete the user
+    await prisma.user.delete({
+      where: { id: targetId },
+    });
+
+    res.json({ message: "User removed successfully" });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    res.status(500).json({ message: "Failed to delete user. Database constraint error." });
   }
 });
 
@@ -220,12 +292,9 @@ app.post("/boards", authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-/* FIXED: PERSISTENT UPDATE/EDIT BOARD */
 app.patch("/boards/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { role } = req.user!;
-    
-    // Authorization check
     if (!["Client", "Project Manager", "Team Lead"].includes(role)) {
       return res.status(403).json({ message: "Not authorized to edit boards" });
     }
@@ -242,18 +311,15 @@ app.patch("/boards/:id", authenticate, async (req: AuthRequest, res: Response) =
   }
 });
 
-/* FIXED: PERSISTENT DELETE BOARD */
 app.delete("/boards/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { role } = req.user!;
     const boardId = req.params.id;
 
-    // Authorization check
     if (!["Client", "Project Manager", "Team Lead"].includes(role)) {
       return res.status(403).json({ message: "Not authorized to delete boards" });
     }
 
-    // Manual Cascade Delete to ensure database clears it
     await prisma.ticket.deleteMany({ where: { boardId } });
     await prisma.column.deleteMany({ where: { boardId } });
     await prisma.board.delete({ where: { id: boardId } });
@@ -310,9 +376,7 @@ app.post("/tickets", authenticate, async (req: AuthRequest, res: Response) => {
     });
 
     if (!user || !["Client", "Project Manager", "Team Lead"].includes(user.role)) {
-      return res.status(403).json({
-        message: "You are not authorized to create tickets",
-      });
+      return res.status(403).json({ message: "You are not authorized to create tickets" });
     }
 
     const { title, description, boardId, assignedTo } = req.body;
@@ -324,13 +388,9 @@ app.post("/tickets", authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    if (!todoColumn) {
-      return res.status(400).json({ message: "Todo column not found" });
-    }
+    if (!todoColumn) return res.status(400).json({ message: "Todo column not found" });
 
-    const ticketCount = await prisma.ticket.count({
-      where: { boardId },
-    });
+    const ticketCount = await prisma.ticket.count({ where: { boardId } });
 
     const ticket = await prisma.ticket.create({
       data: {
@@ -357,17 +417,11 @@ app.patch("/tickets/:id/move", authenticate, async (req: AuthRequest, res: Respo
     const { columnId } = req.body;
 
     const ticket = await prisma.ticket.findUnique({ where: { id } });
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
-    });
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
 
-    if (!ticket || !user) {
-      return res.status(404).json({ message: "Ticket or user not found" });
-    }
+    if (!ticket || !user) return res.status(404).json({ message: "Ticket or user not found" });
 
-    const isClientOrPM =
-      user.role === "Client" || user.role === "Project Manager";
-
+    const isClientOrPM = user.role === "Client" || user.role === "Project Manager";
     const isAssignedUser = ticket.assignedTo === user.id;
 
     if (!isClientOrPM && !isAssignedUser) {
@@ -388,20 +442,12 @@ app.patch("/tickets/:id/move", authenticate, async (req: AuthRequest, res: Respo
 
 app.delete("/tickets/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
-    });
-
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
     if (!user || !["Client", "Project Manager"].includes(user.role)) {
-      return res.status(403).json({
-        message: "You are not authorized to delete this ticket",
-      });
+      return res.status(403).json({ message: "You are not authorized to delete this ticket" });
     }
 
-    await prisma.ticket.delete({
-      where: { id: req.params.id },
-    });
-
+    await prisma.ticket.delete({ where: { id: req.params.id } });
     res.json({ message: "Ticket deleted successfully" });
   } catch (error) {
     console.error("Delete ticket error:", error);
@@ -414,7 +460,6 @@ app.delete("/tickets/:id", authenticate, async (req: AuthRequest, res: Response)
 /* ============================= */
 
 const PORT = 4000;
-
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
