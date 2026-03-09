@@ -50,6 +50,7 @@ export default function Dashboard() {
   /* ===== TEAM FILTERING STATE ===== */
   const [selectedTeamBoard, setSelectedTeamBoard] = useState("");
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
 
   /* ===== MAINTENANCE STATE ===== */
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -218,22 +219,47 @@ export default function Dashboard() {
     setTodoPercent((todo / total) * 100); setProgressPercent((progress / total) * 100); setDonePercent((done / total) * 100);
   };
 
+  /* ===== NEW: FETCH TEAM MEMBERS BY BOARD ASSIGNMENT ===== */
   const fetchBoardTeam = async (boardId: string) => {
-    if (!boardId) { setFilteredUsers([]); return; }
+    if (!boardId) {
+      setFilteredUsers([]);
+      return;
+    }
     const token = localStorage.getItem("token");
     if (!token) return;
-    const colRes = await fetch(`http://localhost:4000/columns/${boardId}`, { headers: { Authorization: `Bearer ${token}` } });
-    const columns = await colRes.json();
-    const boardUserIds = new Set();
-    for (const col of columns) {
-      const ticketRes = await fetch(`http://localhost:4000/tickets/${col.id}`, { headers: { Authorization: `Bearer ${token}` } });
-      const tickets = await ticketRes.json();
-      tickets.forEach((t: any) => { 
-          if (t.userId) boardUserIds.add(t.userId.toString()); 
-          if (t.assignedTo) boardUserIds.add(t.assignedTo.toString()); 
+
+    setIsLoadingTeam(true);
+    try {
+      // 1. Get all columns for this board
+      const colRes = await fetch(`http://localhost:4000/columns/${boardId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
+      const columns = await colRes.json();
+
+      const assignedUserIds = new Set<string>();
+
+      // 2. Loop through columns and fetch all tickets to find assigned users
+      for (const col of columns) {
+        const ticketRes = await fetch(`http://localhost:4000/tickets/${col.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const tickets = await ticketRes.json();
+        
+        tickets.forEach((t: any) => {
+          // Check both field names commonly used in your backend
+          if (t.assignedTo) assignedUserIds.add(t.assignedTo.toString());
+          if (t.userId) assignedUserIds.add(t.userId.toString());
+        });
+      }
+
+      // 3. Filter the global 'users' state to only include those in the Set
+      const assignedMembers = users.filter(u => assignedUserIds.has(u.id.toString()));
+      setFilteredUsers(assignedMembers);
+    } catch (err) {
+      console.error("Error filtering team by board:", err);
+    } finally {
+      setIsLoadingTeam(false);
     }
-    setFilteredUsers(users.filter(u => boardUserIds.has(u.id.toString())));
   };
 
   return (
@@ -367,7 +393,7 @@ export default function Dashboard() {
                   </button>
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "30px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "30px" }}>
                 {boards.map((board) => (
                   <div key={board.id} style={{
                     background: "rgba(255, 255, 255, 0.98)",
@@ -422,22 +448,64 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* TEAM VIEW */}
+          {/* TEAM VIEW WITH BOARD FILTER */}
           {activeView === "team" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
-              <h2 style={{ color: "white", margin: 0, fontWeight: 900, fontSize: "36px" }}>Team Members</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "35px" }}>
-                {users.map((member) => (
-                  <div key={member.id} style={{ background: "rgba(255, 255, 255, 1)", padding: "45px 30px", borderRadius: "28px", textAlign: "center", position: "relative", boxShadow: "0 15px 35px rgba(0,0,0,0.06)" }}>
-                    <div style={{ height: "8px", background: "#4e73df", position: "absolute", top: 0, left: 0, right: 0 }}></div>
-                    <div style={{ width: "90px", height: "90px", background: "#f0f7ff", color: "#4e73df", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 25px", fontSize: "32px", fontWeight: "900", border: "5px solid white" }}>
-                      {member.name.charAt(0).toUpperCase()}
-                    </div>
-                    <h3 style={{ margin: "0 0 8px 0", color: "#1a202c", fontSize: "22px", fontWeight: "900" }}>{member.name}</h3>
-                    <span style={{ fontSize: "11px", color: "#4e73df", fontWeight: "900", textTransform: "uppercase", background: "#eef4ff", padding: "6px 16px", borderRadius: "12px" }}>{member.role}</span>
-                  </div>
-                ))}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end" }}>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span style={{ color: "white", fontSize: "12px", fontWeight: "900", textTransform: "uppercase", letterSpacing: "3px", opacity: 0.8 }}>Resource Directory</span>
+                  <h2 style={{ color: "white", margin: "5px 0 0 0", fontWeight: 900, fontSize: "36px" }}>Team Members</h2>
+                </div>
+                
+                {/* NEW BOARD SELECTOR DROPDOWN */}
+                <select 
+                  value={selectedTeamBoard} 
+                  onChange={(e) => {
+                    setSelectedTeamBoard(e.target.value);
+                    fetchBoardTeam(e.target.value);
+                  }}
+                  style={{ 
+                    padding: "14px 24px", 
+                    borderRadius: "14px", 
+                    background: "white", 
+                    border: "none", 
+                    width: "300px", 
+                    fontWeight: "700", 
+                    fontSize: "14px", 
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.12)", 
+                    color: "#4e73df", 
+                    outline: "none" 
+                  }}
+                >
+                  <option value="">All Company Members</option>
+                  {boards.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
               </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "35px" }}>
+                {isLoadingTeam ? (
+                  <p style={{ color: "white", textAlign: "center", gridColumn: "1/-1" }}>Filtering assigned members...</p>
+                ) : (
+                  (selectedTeamBoard ? filteredUsers : users).map((member) => (
+                    <div key={member.id} style={{ background: "rgba(255, 255, 255, 1)", padding: "45px 30px", borderRadius: "28px", textAlign: "center", position: "relative", boxShadow: "0 15px 35px rgba(0,0,0,0.06)" }}>
+                      <div style={{ height: "8px", background: "#4e73df", position: "absolute", top: 0, left: 0, right: 0 }}></div>
+                      <div style={{ width: "90px", height: "90px", background: "#f0f7ff", color: "#4e73df", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 25px", fontSize: "32px", fontWeight: "900", border: "5px solid white" }}>
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <h3 style={{ margin: "0 0 8px 0", color: "#1a202c", fontSize: "22px", fontWeight: "900" }}>{member.name}</h3>
+                      <span style={{ fontSize: "11px", color: "#4e73df", fontWeight: "900", textTransform: "uppercase", background: "#eef4ff", padding: "6px 16px", borderRadius: "12px" }}>{member.role}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {selectedTeamBoard && filteredUsers.length === 0 && !isLoadingTeam && (
+                <div style={{ textAlign: "center", padding: "100px 0", color: "white", opacity: 0.6 }}>
+                  <p style={{ fontSize: "18px", fontWeight: "700" }}>No members are currently assigned to tickets in this board.</p>
+                </div>
+              )}
             </div>
           )}
 
