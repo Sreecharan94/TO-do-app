@@ -47,6 +47,10 @@ export default function Dashboard() {
   const [progressPercent, setProgressPercent] = useState(0);
   const [donePercent, setDonePercent] = useState(0);
 
+  /* ===== TEAM FILTERING STATE ===== */
+  const [selectedTeamBoard, setSelectedTeamBoard] = useState("");
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+
   /* ===== CHART DATA ===== */
 
   const chartData = {
@@ -265,6 +269,48 @@ export default function Dashboard() {
 
   };
 
+  /* ===== IMPROVED: FETCH TEAM MEMBERS BY BOARD ===== */
+
+  const fetchBoardTeam = async (boardId: string) => {
+    if (!boardId) {
+      setFilteredUsers([]);
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      // 1. Fetch columns for selected board
+      const colRes = await fetch(`http://localhost:4000/columns/${boardId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const columns = await colRes.json();
+
+      const boardUserIds = new Set();
+
+      // 2. Fetch all tickets for all columns in this board
+      for (const col of columns) {
+        const ticketRes = await fetch(`http://localhost:4000/tickets/${col.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const tickets = await ticketRes.json();
+        
+        // Check both userId and assignedTo just in case of naming differences
+        tickets.forEach((t: any) => {
+          if (t.userId) boardUserIds.add(t.userId.toString());
+          if (t.assignedTo) boardUserIds.add(t.assignedTo.toString());
+        });
+      }
+
+      // 3. Match user IDs found in tickets with the main users list
+      const assignedMembers = users.filter(u => boardUserIds.has(u.id.toString()));
+      setFilteredUsers(assignedMembers);
+    } catch (error) {
+      console.error("Error fetching board team:", error);
+    }
+  };
+
   return (
 
     <div className="min-h-screen flex bg-gray-100">
@@ -281,21 +327,21 @@ export default function Dashboard() {
 
           <button
             onClick={() => setActiveView("boards")}
-            className="text-left hover:bg-gray-100 p-3 rounded-lg w-full font-medium"
+            className={`text-left hover:bg-gray-100 p-3 rounded-lg w-full font-medium ${activeView === 'boards' ? 'bg-indigo-50 text-indigo-600' : ''}`}
           >
             Boards
           </button>
 
           <button
             onClick={() => setActiveView("analytics")}
-            className="text-left hover:bg-gray-100 p-3 rounded-lg w-full font-medium"
+            className={`text-left hover:bg-gray-100 p-3 rounded-lg w-full font-medium ${activeView === 'analytics' ? 'bg-indigo-50 text-indigo-600' : ''}`}
           >
             Analytics
           </button>
 
           <button
             onClick={() => setActiveView("team")}
-            className="text-left hover:bg-gray-100 p-3 rounded-lg w-full font-medium"
+            className={`text-left hover:bg-gray-100 p-3 rounded-lg w-full font-medium ${activeView === 'team' ? 'bg-indigo-50 text-indigo-600' : ''}`}
           >
             Team
           </button>
@@ -393,7 +439,7 @@ export default function Dashboard() {
                     <>
                       <h2
                         onClick={() => navigate(`/board/${board.id}`)}
-                        className="text-lg font-semibold cursor-pointer"
+                        className="text-lg font-semibold cursor-pointer hover:text-indigo-600"
                       >
                         {board.name}
                       </h2>
@@ -472,42 +518,63 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ===== TEAM VIEW ===== */}
+        {/* ===== TEAM VIEW (FIXED FILTERING) ===== */}
 
         {activeView === "team" && (
 
           <div className="p-10">
 
-            <h2 className="text-2xl font-bold mb-6">
-              Team Members
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">
+                Team Members
+              </h2>
 
-            <div className="grid grid-cols-4 gap-6">
-
-              {users.map((member) => (
-
-                <div
-                  key={member.id}
-                  className="bg-white p-6 rounded-xl shadow"
-                >
-
-                  <div className="w-12 h-12 bg-indigo-500 text-white flex items-center justify-center rounded-full mb-3">
-                    {member.name.charAt(0)}
-                  </div>
-
-                  <p className="font-semibold">
-                    {member.name}
-                  </p>
-
-                  <p className="text-sm text-gray-500">
-                    {member.role}
-                  </p>
-
-                </div>
-
-              ))}
-
+              <select
+                value={selectedTeamBoard}
+                onChange={(e) => {
+                  setSelectedTeamBoard(e.target.value);
+                  fetchBoardTeam(e.target.value);
+                }}
+                className="border p-3 rounded bg-white shadow-sm"
+              >
+                <option value="">Select Board to see Members</option>
+                {boards.map((board) => (
+                  <option key={board.id} value={board.id}>
+                    {board.name}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* If no board is selected, show instructions */}
+            {!selectedTeamBoard ? (
+              <div className="text-center py-20 text-gray-500 border-2 border-dashed rounded-xl">
+                Please select a board from the dropdown to see the assigned team members.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                {filteredUsers.length > 0 ? (
+                  filteredUsers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition-shadow border-t-4 border-indigo-500"
+                    >
+                      <div className="w-12 h-12 bg-indigo-500 text-white flex items-center justify-center rounded-full mb-3 text-lg font-bold">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="font-semibold text-lg">{member.name}</p>
+                      <p className="text-sm text-gray-500 uppercase tracking-wider">{member.role}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-4 text-center py-20 text-gray-400">
+                    No members are currently assigned to tickets in this board.
+                  </div>
+                )}
+
+              </div>
+            )}
 
           </div>
         )}
