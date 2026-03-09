@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  password        String
+  role            String
+  boards          Board[]
+  createdTickets  Ticket[] @relation("CreatedTickets")
+  assignedTickets Ticket[] @relation("AssignedTickets")
+  createdAt       DateTime @default(now())
+}
+
+model Board {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  columns   Column[]
+  tickets   Ticket[]
+  createdAt DateTime @default(now())
+}
+
+model Column {
+  id      String   @id @default(uuid())
+  name    String
+  order   Int
+  boardId String
+  board   Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  ticketNo    Int
+  title       String
+  description String
+  boardId     String
+  columnId    String
+  createdBy   String
+  assignedTo  String
+
+  board        Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  column       Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  createdUser  User   @relation("CreatedTickets", fields: [createdBy], references: [id])
+  assignedUser User   @relation("AssignedTickets", fields: [assignedTo], references: [id])
+
+  createdAt DateTime @default(now())
+}

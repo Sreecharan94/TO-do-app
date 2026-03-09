@@ -1,0 +1,118 @@
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(135deg,#5f6bd6,#8f58a8);
+  min-height: 100vh;
+}
+
+/* DASHBOARD */
+.dashboard{
+  width:100%;
+}
+
+/* NAVBAR */
+.navbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:20px 40px;
+  color:white;
+}
+
+/* PROFILE SECTION */
+.profile{
+  display:flex;
+  align-items:center;
+  gap:15px;
+}
+
+.profile span{
+  font-size:12px;
+  opacity:.8;
+}
+
+/* LOGOUT BUTTON */
+.profile button{
+  background:red;
+  border:none;
+  color:white;
+  padding:6px 14px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+/* CREATE BOARD SECTION */
+.create-board{
+  margin:20px 40px;
+  display:flex;
+  gap:10px;
+}
+
+.create-board input{
+  flex:1;
+  padding:10px;
+  border-radius:6px;
+  border:none;
+}
+
+/* CREATE BUTTON */
+.create-board button{
+  background:white;
+  color:#2563eb;
+  border:none;
+  padding:10px 16px;
+  border-radius:6px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+/* BOARDS GRID */
+.boards{
+  padding:20px 40px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:20px;
+}
+
+/* BOARD CARD */
+.board-card{
+  background:white;
+  padding:18px;
+  border-radius:10px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.2);
+}
+
+.board-card h3{
+  cursor:pointer;
+  margin:0;
+}
+
+/* BOARD BUTTONS */
+.board-actions{
+  margin-top:12px;
+  display:flex;
+  gap:10px;
+}
+
+.board-actions button{
+  background:white;
+  border:1px solid #2563eb;
+  color:#2563eb;
+  padding:6px 12px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.board-actions button:last-child{
+  border:1px solid red;
+  color:red;
+}
+
+/* ============================= */
+/* DASHBOARD OVERRIDE (ADDED) */
+/* ============================= */
+
+.dashboard-page {
+  background:#f3f4f6;
+  min-height:100vh;
+}

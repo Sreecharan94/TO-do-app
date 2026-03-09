@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* YOUR ORIGINAL CODE BELOW (UNCHANGED) */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea, #764ba2, #ff6a88);
+  background-size: 300% 300%;
+  animation: gradientMove 12s ease infinite;
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.center-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.glass {
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(20px);
+  padding: 35px;
+  border-radius: 16px;
+  width: 350px;
+  color: white;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: none;
+}
+
+button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: #2563eb;
+  color: white;
+  transition: 0.2s;
+}
+
+button:hover {
+  transform: translateY(-2px);
+}
+
+.dashboard-container {
+  padding: 40px;
+  color: white;
+}
+
+.glass-card {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(18px);
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 15px;
+}
+
+.board-columns {
+  display: flex;
+  gap: 20px;
+  margin-top: 25px;
+}
+
+.column {
+  flex: 1;
+  padding: 15px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(18px);
+}
+
+.ticket {
+  background: rgba(255,255,255,0.25);
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+
+/* =============================== */
+/* DASHBOARD BUTTON COLOR OVERRIDE */
+/* (ADDED - NOTHING REMOVED) */
+/* =============================== */
+
+button.bg-red-500 {
+  background-color: #ef4444 !important;
+  color: white !important;
+}
+
+button.bg-red-500:hover {
+  background-color: #dc2626 !important;
+}
+
+button.bg-green-500 {
+  background-color: #22c55e !important;
+  color: white !important;
+}
+
+button.bg-green-500:hover {
+  background-color: #15803d !important;
+}
+
+button.text-blue-600 {
+  color: #2563eb !important;
+}
+
+button.text-blue-600:hover {
+  color: #1d4ed8 !important;
+}
+
+button.text-red-600 {
+  color: #dc2626 !important;
+}
+
+button.text-red-600:hover {
+  color: #991b1b !important;
+}
