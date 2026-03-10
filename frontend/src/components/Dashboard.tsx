@@ -1,5 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { 
+  Command, 
+  Columns, 
+  Activity, 
+  Users, 
+  Settings, 
+  LogOut, 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  Check, 
+  X 
+} from "lucide-react";
 
 /* ===== CHART IMPORTS ===== */
 import {
@@ -155,8 +168,6 @@ export default function Dashboard() {
     setEditingId(null);
   };
 
-  /* ===== USER MAINTENANCE ACTIONS ===== */
-
   const deleteUser = async (userId: string) => {
     if (!isClient) return;
     const token = localStorage.getItem("token");
@@ -219,7 +230,6 @@ export default function Dashboard() {
     setTodoPercent((todo / total) * 100); setProgressPercent((progress / total) * 100); setDonePercent((done / total) * 100);
   };
 
-  /* ===== NEW: FETCH TEAM MEMBERS BY BOARD ASSIGNMENT ===== */
   const fetchBoardTeam = async (boardId: string) => {
     if (!boardId) {
       setFilteredUsers([]);
@@ -230,29 +240,21 @@ export default function Dashboard() {
 
     setIsLoadingTeam(true);
     try {
-      // 1. Get all columns for this board
       const colRes = await fetch(`http://localhost:4000/columns/${boardId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const columns = await colRes.json();
-
       const assignedUserIds = new Set<string>();
-
-      // 2. Loop through columns and fetch all tickets to find assigned users
       for (const col of columns) {
         const ticketRes = await fetch(`http://localhost:4000/tickets/${col.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const tickets = await ticketRes.json();
-        
         tickets.forEach((t: any) => {
-          // Check both field names commonly used in your backend
           if (t.assignedTo) assignedUserIds.add(t.assignedTo.toString());
           if (t.userId) assignedUserIds.add(t.userId.toString());
         });
       }
-
-      // 3. Filter the global 'users' state to only include those in the Set
       const assignedMembers = users.filter(u => assignedUserIds.has(u.id.toString()));
       setFilteredUsers(assignedMembers);
     } catch (err) {
@@ -266,43 +268,58 @@ export default function Dashboard() {
     <div style={{
       minHeight: "100vh",
       display: "flex",
-      background: "linear-gradient(135deg, #4e73df, #1cc88a)",
+      background: "#f4f7fe",
       fontFamily: "'Inter', sans-serif",
     }}>
       
       {/* SIDEBAR */}
       <div style={{
-        width: "280px",
-        background: "rgba(255, 255, 255, 0.15)",
-        backdropFilter: "blur(25px)",
-        borderRight: "1px solid rgba(255, 255, 255, 0.2)",
+        width: "250px",
+        background: "#ffffff",
+        borderRight: "1px solid #e2e8f0",
         display: "flex",
         flexDirection: "column",
-        padding: "40px 20px",
-        color: "white"
+        padding: "25px 15px",
+        boxShadow: "4px 0 15px rgba(0,0,0,0.02)"
       }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 900, marginBottom: "50px", letterSpacing: "1.5px" }}>JIRA CLONE</h1>
-        <nav style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {["boards", "analytics", "team"].map((view) => (
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "35px", paddingLeft: "5px" }}>
+            <div style={{ 
+                background: "linear-gradient(135deg, #4e73df 0%, #224abe 100%)", 
+                padding: "8px", 
+                borderRadius: "10px",
+            }}>
+                <Command size={20} color="white" />
+            </div>
+            <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#1a202c", letterSpacing: "-0.5px", margin: 0 }}>JiraClone</h1>
+        </div>
+
+        <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {[
+            { id: "boards", label: "Boards", icon: <Columns size={16} /> },
+            { id: "analytics", label: "Analytics", icon: <Activity size={16} /> },
+            { id: "team", label: "Team", icon: <Users size={16} /> }
+          ].map((item) => (
             <button
-              key={view}
-              onClick={() => setActiveView(view)}
+              key={item.id}
+              onClick={() => setActiveView(item.id)}
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
                 textAlign: "left",
-                padding: "16px 24px",
-                borderRadius: "14px",
+                padding: "10px 14px",
+                borderRadius: "10px",
                 border: "none",
-                background: activeView === view ? "rgba(255, 255, 255, 0.25)" : "transparent",
-                color: "white",
-                fontWeight: "800",
-                textTransform: "uppercase",
-                letterSpacing: "1px",
+                background: activeView === item.id ? "#f0f5ff" : "transparent",
+                color: activeView === item.id ? "#4e73df" : "#718096",
+                fontWeight: "600",
                 fontSize: "13px",
                 cursor: "pointer",
-                transition: "all 0.3s ease"
+                transition: "all 0.2s ease"
               }}
             >
-              {view}
+              {item.icon}
+              {item.label}
             </button>
           ))}
 
@@ -310,116 +327,186 @@ export default function Dashboard() {
             <button
               onClick={() => setActiveView("maintenance")}
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
                 textAlign: "left",
-                padding: "16px 24px",
-                borderRadius: "14px",
+                padding: "10px 14px",
+                borderRadius: "10px",
                 border: "none",
-                background: activeView === "maintenance" ? "rgba(255, 255, 255, 0.25)" : "transparent",
-                color: "#ffc107",
-                fontWeight: "900",
-                textTransform: "uppercase",
-                letterSpacing: "1px",
+                background: activeView === "maintenance" ? "#fffaf0" : "transparent",
+                color: activeView === "maintenance" ? "#dd6b20" : "#718096",
+                fontWeight: "600",
                 fontSize: "13px",
-                marginTop: "20px",
+                marginTop: "10px",
                 cursor: "pointer",
-                border: "1px dashed rgba(255, 193, 7, 0.5)"
+                transition: "all 0.2s ease",
               }}
             >
+              <Settings size={16} />
               Maintenance
             </button>
           )}
         </nav>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      {/* MAIN CONTENT AREA */}
+      <div style={{ 
+        flex: 1, 
+        display: "flex", 
+        flexDirection: "column",
+        background: "linear-gradient(135deg, #2d3748 0%, #4a5568 100%)",
+      }}>
         
         {/* TOPBAR */}
         <div style={{
-          padding: "20px 45px",
+          padding: "15px 35px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background: "rgba(255, 255, 255, 0.08)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.15)"
+          background: "rgba(0, 0, 0, 0.1)",
+          backdropFilter: "blur(8px)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.05)"
         }}>
-          <h2 style={{ color: "white", textTransform: "uppercase", fontSize: "12px", letterSpacing: "2.5px", fontWeight: "900" }}>
-            Dashboard / <span style={{opacity: 0.7}}>{activeView}</span>
-          </h2>
+          <div>
+            <h2 style={{ color: "white", fontSize: "24px", fontWeight: "800", margin: 0 }}>
+              Dashboard
+            </h2>
+            <p style={{ color: "#63b3ed", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", margin: 0 }}>
+              {activeView}
+            </p>
+          </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: "25px" }}>
             <div style={{ textAlign: "right", color: "white" }}>
-              <p style={{ margin: 0, fontWeight: "800", fontSize: "16px" }}>{user?.name}</p>
-              <p style={{ margin: 0, fontSize: "11px", opacity: 0.8, fontWeight: "600" }}>{user?.role}</p>
+              <p style={{ margin: 0, fontWeight: "700", fontSize: "16px" }}>{user?.name}</p>
+              <p style={{ 
+                margin: 0, 
+                fontSize: "11px", 
+                fontWeight: "700",
+                color: user?.role === "Client" ? "#f6ad55" : "#63b3ed" 
+              }}>
+                {user?.role}
+              </p>
             </div>
             <button onClick={handleLogout} style={{
-              background: "#ff4b2b",
+              background: "#e53e3e",
               color: "white",
               border: "none",
-              padding: "12px 24px",
-              borderRadius: "10px",
-              fontWeight: "900",
+              padding: "8px 16px",
+              height: "38px",
+              borderRadius: "8px",
+              fontWeight: "700",
               fontSize: "12px",
               cursor: "pointer",
-              boxShadow: "0 4px 15px rgba(255, 75, 43, 0.3)"
-            }}>LOGOUT</button>
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}>
+                <LogOut size={14} />
+                LOGOUT
+            </button>
           </div>
         </div>
 
         {/* VIEW CONTAINER */}
-        <div style={{ padding: "45px", flex: 1, overflowY: "auto" }}>
+        <div style={{ padding: "35px", flex: 1, overflowY: "auto" }}>
           
           {/* BOARDS VIEW */}
           {activeView === "boards" && (
             <>
               {isAdmin && (
                 <div style={{ 
-                  background: "rgba(255, 255, 255, 0.2)", 
-                  padding: "25px", 
-                  borderRadius: "18px", 
+                  background: "rgba(255, 255, 255, 0.1)", 
+                  padding: "15px", 
+                  borderRadius: "12px", 
                   display: "flex", 
-                  gap: "15px", 
-                  marginBottom: "40px",
-                  border: "1px solid rgba(255, 255, 255, 0.3)"
+                  gap: "10px", 
+                  marginBottom: "30px",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
                 }}>
                   <input
-                    placeholder="Enter new board name..."
+                    placeholder="Enter board name..."
                     value={boardName}
                     onChange={(e) => setBoardName(e.target.value)}
-                    style={{ flex: 1, padding: "14px 20px", borderRadius: "12px", border: "none", outline: "none", background: "white", fontSize: "15px" }}
+                    style={{ 
+                        flex: 1, 
+                        padding: "10px 15px", 
+                        borderRadius: "8px", 
+                        border: "none", 
+                        outline: "none", 
+                        background: "rgba(255, 255, 255, 0.95)", 
+                        fontSize: "13px",
+                    }}
                   />
-                  <button onClick={createBoard} style={{ background: "#1cc88a", color: "white", border: "none", padding: "0 35px", borderRadius: "12px", fontWeight: "900", fontSize: "13px", cursor: "pointer" }}>
-                    CREATE BOARD
+                  <button onClick={createBoard} style={{ 
+                    background: "#48bb78", 
+                    color: "white", 
+                    border: "none", 
+                    padding: "0 20px", 
+                    height: "38px",
+                    borderRadius: "8px", 
+                    fontWeight: "700", 
+                    fontSize: "12px", 
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}>
+                    <Plus size={16} />
+                    CREATE
                   </button>
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "30px" }}>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
                 {boards.map((board) => (
                   <div key={board.id} style={{
-                    background: "rgba(255, 255, 255, 0.98)",
-                    padding: "35px",
-                    borderRadius: "24px",
-                    boxShadow: "0 15px 35px rgba(0,0,0,0.08)",
+                    background: "#ffffff",
+                    padding: "20px",
+                    borderRadius: "16px",
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    minHeight: "200px"
+                    minHeight: "150px",
                   }}>
                     {editingId === board.id ? (
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <input value={editingName} onChange={(e) => setEditingName(e.target.value)} style={{ flex: 1, border: "2px solid #edf2f7", padding: "10px", borderRadius: "8px" }} />
-                        <button onClick={saveEditBoard} style={{ background: "#1cc88a", color: "white", border: "none", padding: "10px 20px", borderRadius: "8px", fontWeight: "bold" }}>Save</button>
+                      <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
+                        <input 
+                            value={editingName} 
+                            onChange={(e) => setEditingName(e.target.value)} 
+                            style={{ border: "1px solid #edf2f7", padding: "10px", borderRadius: "8px", fontSize: "14px" }} 
+                        />
+                        <div style={{ display: "flex", gap: "6px" }}>
+                            <button onClick={saveEditBoard} style={{ flex: 1, background: "#48bb78", color: "white", border: "none", padding: "8px", borderRadius: "8px" }}>
+                                <Check size={16} />
+                            </button>
+                            <button onClick={() => setEditingId(null)} style={{ flex: 1, background: "#edf2f7", color: "#4a5568", border: "none", padding: "8px", borderRadius: "8px" }}>
+                                <X size={16} />
+                            </button>
+                        </div>
                       </div>
                     ) : (
                       <>
-                        <div>
-                          <p style={{ fontSize: "11px", color: "#4e73df", fontWeight: "900", marginBottom: "8px", letterSpacing: "1.5px" }}>WORKSPACE</p>
-                          <h3 onClick={() => navigate(`/board/${board.id}`)} style={{ margin: 0, fontSize: "24px", cursor: "pointer", color: "#2d3748", fontWeight: 900 }}>{board.name}</h3>
+                        <div onClick={() => navigate(`/board/${board.id}`)} style={{ cursor: "pointer" }}>
+                          <p style={{ fontSize: "9px", color: "#4e73df", fontWeight: "800", marginBottom: "4px", letterSpacing: "1px", textTransform: "uppercase" }}>Project Space</p>
+                          <h3 style={{ margin: 0, fontSize: "18px", color: "#2d3748", fontWeight: 700 }}>{board.name}</h3>
                         </div>
                         {isAdmin && (
-                          <div style={{ display: "flex", gap: "20px", borderTop: "1.5px solid #f7fafc", paddingTop: "20px" }}>
-                            <button onClick={() => { setEditingId(board.id); setEditingName(board.name); }} style={{ background: "transparent", color: "#4e73df", border: "none", fontWeight: "800", fontSize: "12px", cursor: "pointer", textTransform: "uppercase" }}>Edit</button>
-                            <button onClick={() => deleteBoard(board.id)} style={{ background: "transparent", color: "#ff4b2b", border: "none", fontWeight: "800", fontSize: "12px", cursor: "pointer", textTransform: "uppercase" }}>Delete</button>
+                          <div style={{ display: "flex", gap: "8px", borderTop: "1px solid #f1f5f9", paddingTop: "12px", marginTop: "15px" }}>
+                            <button 
+                                onClick={() => { setEditingId(board.id); setEditingName(board.name); }} 
+                                style={{ background: "#f0f5ff", color: "#4e73df", border: "none", padding: "8px", height: "36px", borderRadius: "8px", cursor: "pointer", flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}
+                            >
+                                <Pencil size={14} />
+                            </button>
+                            <button 
+                                onClick={() => deleteBoard(board.id)} 
+                                style={{ background: "#fff5f5", color: "#e53e3e", border: "none", padding: "8px", height: "36px", borderRadius: "8px", cursor: "pointer", flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}
+                            >
+                                <Trash2 size={14} />
+                            </button>
                           </div>
                         )}
                       </>
@@ -432,32 +519,27 @@ export default function Dashboard() {
 
           {/* ANALYTICS VIEW */}
           {activeView === "analytics" && (
-            <div style={{ background: "rgba(255,255,255,0.95)", padding: "50px", borderRadius: "30px", maxWidth: "900px", margin: "0 auto", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.15)" }}>
-              <h2 style={{ marginBottom: "35px", color: "#1a202c", fontWeight: 900, fontSize: "28px" }}>Performance Analytics</h2>
+            <div style={{ background: "white", padding: "30px", borderRadius: "20px", maxWidth: "700px", margin: "0 auto", textAlign: "center", boxShadow: "0 15px 30px rgba(0,0,0,0.2)" }}>
+              <h2 style={{ marginBottom: "25px", color: "#1a202c", fontWeight: 800, fontSize: "20px" }}>Analytics</h2>
               <select
                 value={selectedBoard}
                 onChange={(e) => { setSelectedBoard(e.target.value); fetchBoardAnalytics(e.target.value); }}
-                style={{ padding: "16px 24px", borderRadius: "14px", width: "350px", marginBottom: "45px", border: "2px solid #edf2f7", outline: "none", fontSize: "15px", fontWeight: "600", color: "#4a5568" }}
+                style={{ padding: "10px 15px", borderRadius: "8px", width: "100%", maxWidth: "350px", marginBottom: "30px", border: "1px solid #edf2f7", fontSize: "14px" }}
               >
-                <option value="">Select a board to track...</option>
+                <option value="">Select a board...</option>
                 {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
-              <div style={{ maxWidth: "450px", margin: "0 auto" }}>
+              <div style={{ maxWidth: "350px", margin: "0 auto" }}>
                 <Pie data={chartData} />
               </div>
             </div>
           )}
 
-          {/* TEAM VIEW WITH BOARD FILTER */}
+          {/* TEAM VIEW */}
           {activeView === "team" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end" }}>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ color: "white", fontSize: "12px", fontWeight: "900", textTransform: "uppercase", letterSpacing: "3px", opacity: 0.8 }}>Resource Directory</span>
-                  <h2 style={{ color: "white", margin: "5px 0 0 0", fontWeight: 900, fontSize: "36px" }}>Team Members</h2>
-                </div>
-                
-                {/* NEW BOARD SELECTOR DROPDOWN */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ color: "white", margin: 0, fontWeight: 800, fontSize: "24px" }}>Team</h2>
                 <select 
                   value={selectedTeamBoard} 
                   onChange={(e) => {
@@ -465,123 +547,75 @@ export default function Dashboard() {
                     fetchBoardTeam(e.target.value);
                   }}
                   style={{ 
-                    padding: "14px 24px", 
-                    borderRadius: "14px", 
+                    padding: "6px 12px", 
+                    borderRadius: "8px", 
                     background: "white", 
                     border: "none", 
-                    width: "300px", 
-                    fontWeight: "700", 
-                    fontSize: "14px", 
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.12)", 
-                    color: "#4e73df", 
-                    outline: "none" 
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    width: "200px" // Standardized small width
                   }}
                 >
-                  <option value="">All Company Members</option>
+                  <option value="">All Members</option>
                   {boards.map(b => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
                 </select>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "35px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "20px" }}>
                 {isLoadingTeam ? (
-                  <p style={{ color: "white", textAlign: "center", gridColumn: "1/-1" }}>Filtering assigned members...</p>
+                  <p style={{ color: "white", textAlign: "center", gridColumn: "1/-1" }}>Loading...</p>
                 ) : (
                   (selectedTeamBoard ? filteredUsers : users).map((member) => (
-                    <div key={member.id} style={{ background: "rgba(255, 255, 255, 1)", padding: "45px 30px", borderRadius: "28px", textAlign: "center", position: "relative", boxShadow: "0 15px 35px rgba(0,0,0,0.06)" }}>
-                      <div style={{ height: "8px", background: "#4e73df", position: "absolute", top: 0, left: 0, right: 0 }}></div>
-                      <div style={{ width: "90px", height: "90px", background: "#f0f7ff", color: "#4e73df", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 25px", fontSize: "32px", fontWeight: "900", border: "5px solid white" }}>
+                    <div key={member.id} style={{ background: "white", padding: "25px", borderRadius: "16px", textAlign: "center", boxShadow: "0 8px 20px rgba(0,0,0,0.1)" }}>
+                      <div style={{ width: "50px", height: "50px", background: "#f0f7ff", color: "#4e73df", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "18px", fontWeight: "800" }}>
                         {member.name.charAt(0).toUpperCase()}
                       </div>
-                      <h3 style={{ margin: "0 0 8px 0", color: "#1a202c", fontSize: "22px", fontWeight: "900" }}>{member.name}</h3>
-                      <span style={{ fontSize: "11px", color: "#4e73df", fontWeight: "900", textTransform: "uppercase", background: "#eef4ff", padding: "6px 16px", borderRadius: "12px" }}>{member.role}</span>
+                      <h3 style={{ margin: "0 0 4px 0", color: "#1a202c", fontSize: "16px", fontWeight: "700" }}>{member.name}</h3>
+                      <span style={{ 
+                        fontSize: "10px", 
+                        color: member.role === "Client" ? "#f6ad55" : "#4e73df", 
+                        fontWeight: "800", 
+                        textTransform: "uppercase",
+                        background: member.role === "Client" ? "#fff9f0" : "#f0f5ff",
+                        padding: "4px 10px",
+                        borderRadius: "6px"
+                      }}>{member.role}</span>
                     </div>
                   ))
                 )}
               </div>
-
-              {selectedTeamBoard && filteredUsers.length === 0 && !isLoadingTeam && (
-                <div style={{ textAlign: "center", padding: "100px 0", color: "white", opacity: 0.6 }}>
-                  <p style={{ fontSize: "18px", fontWeight: "700" }}>No members are currently assigned to tickets in this board.</p>
-                </div>
-              )}
             </div>
           )}
 
           {/* MAINTENANCE VIEW */}
           {activeView === "maintenance" && isClient && (
-            <div style={{ 
-              background: "rgba(255, 255, 255, 0.95)", 
-              padding: "40px", 
-              borderRadius: "24px", 
-              boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
-              backdropFilter: "blur(10px)"
-            }}>
-              <div style={{ marginBottom: "30px" }}>
-                <h2 style={{ color: "#1a202c", fontWeight: 900, fontSize: "28px", margin: 0 }}>System Maintenance</h2>
-                <p style={{ color: "#718096", fontSize: "14px", marginTop: "5px" }}>Manage user permissions, roles, and account status.</p>
-              </div>
-              
+            <div style={{ background: "white", padding: "25px", borderRadius: "16px", boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}>
+              <h2 style={{ color: "#1a202c", fontWeight: 800, fontSize: "20px", marginBottom: "20px" }}>Maintenance</h2>
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ textAlign: "left", color: "#4e73df", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1.5px" }}>
-                      <th style={{ padding: "15px 20px" }}>User Details</th>
-                      <th style={{ padding: "15px 20px" }}>Access Level</th>
-                      <th style={{ padding: "15px 20px", textAlign: "right" }}>Management</th>
+                    <tr style={{ textAlign: "left", color: "#a0aec0", fontSize: "11px", textTransform: "uppercase", borderBottom: "1px solid #f7fafc" }}>
+                      <th style={{ padding: "12px" }}>User</th>
+                      <th style={{ padding: "12px" }}>Role</th>
+                      <th style={{ padding: "12px", textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map(u => (
-                      <tr key={u.id} style={{ background: "white", boxShadow: "0 2px 10px rgba(0,0,0,0.02)" }}>
-                        <td style={{ padding: "20px", borderRadius: "15px 0 0 15px", borderLeft: "4px solid #4e73df" }}>
-                          <div style={{ fontWeight: "800", color: "#2d3748" }}>{u.name}</div>
-                          <div style={{ fontSize: "12px", color: "#a0aec0" }}>
-                            {editingUser?.id === u.id ? (
-                              <input 
-                                value={editingUser.email || ""} 
-                                onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
-                                style={{ border: "1px solid #cbd5e0", padding: "4px 8px", borderRadius: "5px", width: "250px", marginTop: "5px" }}
-                              />
-                            ) : (u.email || "No Email Defined")}
-                          </div>
+                      <tr key={u.id} style={{ borderBottom: "1px solid #f7fafc" }}>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ fontWeight: "700", color: "#2d3748", fontSize: "14px" }}>{u.name}</div>
                         </td>
-                        <td style={{ padding: "20px" }}>
-                          {editingUser?.id === u.id ? (
-                            <select 
-                              value={editingUser.role} 
-                              onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
-                              style={{ padding: "8px", borderRadius: "8px", border: "1px solid #cbd5e0", background: "white" }}
-                            >
-                              <option value="Team Member">Team Member</option>
-                              <option value="Team Lead">Team Lead</option>
-                              <option value="Project Manager">Project Manager</option>
-                              <option value="Client">Client</option>
-                            </select>
-                          ) : (
-                            <span style={{ 
-                              background: u.role === 'Client' ? "#fff5f5" : "#f0f7ff", 
-                              color: u.role === 'Client' ? "#e53935" : "#4e73df", 
-                              padding: "5px 12px", 
-                              borderRadius: "8px", 
-                              fontSize: "11px", 
-                              fontWeight: "800" 
-                            }}>{u.role}</span>
-                          )}
+                        <td style={{ padding: "12px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: "700", color: u.role === "Client" ? "#f6ad55" : "#4e73df" }}>{u.role}</span>
                         </td>
-                        <td style={{ padding: "20px", borderRadius: "0 15px 15px 0", textAlign: "right" }}>
-                          {editingUser?.id === u.id ? (
-                            <div style={{ display: "flex", gap: "10px", justifyContent: "end" }}>
-                              <button onClick={updateUser} style={{ background: "#1cc88a", color: "white", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>Save</button>
-                              <button onClick={() => setEditingUser(null)} style={{ background: "#edf2f7", color: "#4a5568", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>Cancel</button>
+                        <td style={{ padding: "12px", textAlign: "right" }}>
+                           <div style={{ display: "flex", gap: "8px", justifyContent: "end" }}>
+                              <button onClick={() => setEditingUser(u)} style={{ background: "#f0f5ff", border: "none", color: "#4e73df", padding: "6px", borderRadius: "6px" }}><Pencil size={14}/></button>
+                              <button onClick={() => deleteUser(u.id)} style={{ background: "#fff5f5", border: "none", color: "#e53e3e", padding: "6px", borderRadius: "6px" }}><Trash2 size={14}/></button>
                             </div>
-                          ) : (
-                            <div style={{ display: "flex", gap: "20px", justifyContent: "end" }}>
-                              <button onClick={() => setEditingUser(u)} style={{ background: "transparent", color: "#4e73df", border: "none", fontWeight: "800", fontSize: "12px", cursor: "pointer" }}>EDIT</button>
-                              <button onClick={() => deleteUser(u.id)} style={{ background: "transparent", color: "#ff4b2b", border: "none", fontWeight: "800", fontSize: "12px", cursor: "pointer" }}>REMOVE</button>
-                            </div>
-                          )}
                         </td>
                       </tr>
                     ))}
